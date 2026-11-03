@@ -1,0 +1,1025 @@
+<title>Sonar Station Proposals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Semi+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: the in-game panel. Mode lever left, plot centre, Track Builder over a square waterfall on the right;
+   hydrophone controls, tag buttons and the comparison reference along the bottom. Flat, square, bevelled. */
+:root {
+  --bg: #16191d;
+  --steel: #383e46;
+  --steel-hi: #5d6570;
+  --steel-lo: #1e2227;
+  --ink: #e1e5ea;
+  --muted: #9aa3ae;
+  --screen: #132410;
+  --phos: #62e07a;
+  --amber: #d9a13d;
+  --enemy: #e5534b;
+  --civil: #4b8fe8;
+  --gem: #e06cf0;
+  --font-ui: "Saira Semi Condensed", "Arial Narrow", sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--ink); }
+[hidden] { display: none !important; }
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 40px;
+}
+.page { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-family: var(--font-ui); font-weight: 700; font-size: 30px; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+.intro { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+
+.bevel { border: 3px solid; border-color: var(--steel-hi) var(--steel-lo) var(--steel-lo) var(--steel-hi); }
+.inset { border: 3px solid; border-color: var(--steel-lo) var(--steel-hi) var(--steel-hi) var(--steel-lo); }
+
+/* Station grid */
+.station {
+  background: var(--steel); padding: 20px; min-width: 0;
+  display: grid; gap: 20px 24px;
+  grid-template-columns: 150px minmax(0, 1fr) 330px;
+  grid-template-areas: "mode plot side" "hydro tags ref";
+  align-items: start;
+}
+.a-mode { grid-area: mode; } .a-plot { grid-area: plot; } .a-side { grid-area: side; }
+.a-hydro { grid-area: hydro; } .a-tags { grid-area: tags; } .a-ref { grid-area: ref; }
+.a-side { align-self: end; }
+@media (max-width: 960px) {
+  .station { grid-template-columns: minmax(0, 1fr); grid-template-areas: "plot" "side" "mode" "hydro" "tags" "ref"; }
+  .a-side { align-self: start; }
+}
+#plot { display: block; width: 100%; max-width: 600px; aspect-ratio: 1; touch-action: none; cursor: crosshair; margin: 0 auto; }
+.lbl { font-family: var(--font-ui); font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
+.readout { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
+.group { display: grid; gap: 10px; align-content: start; justify-items: start; }
+
+/* Mode: lamp + vertical lever */
+.lamp { width: 16px; height: 16px; border-radius: 50%; background: var(--phos); border: 2px solid var(--steel-lo); }
+.lamp.off { background: var(--enemy); }
+
+/* Levers (built in script) */
+.lever { touch-action: none; cursor: pointer; user-select: none; outline: none; }
+.lever:focus-visible { outline: 2px solid var(--amber); outline-offset: 4px; }
+.lv-labels span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.lv-labels span.on { color: var(--ink); font-weight: 600; }
+.lv-slot { position: relative; background: var(--steel-lo); }
+.lv-handle { position: absolute; background: var(--steel-hi); transition: left .1s, top .1s; }
+.lever.h { display: grid; grid-template-rows: auto 14px; gap: 10px; width: calc(var(--n) * 54px); }
+.lever.h .lv-labels { display: grid; grid-template-columns: repeat(var(--n), 1fr); text-align: center; }
+.lever.h .lv-handle { width: 20px; height: 26px; top: -9px; }
+.lever.v { display: grid; grid-template-columns: auto 14px; gap: 10px; height: 150px; }
+.lever.v .lv-labels { display: grid; grid-template-rows: repeat(var(--n), 1fr); align-items: center; text-align: right; }
+.lever.v .lv-handle { width: 26px; height: 20px; left: -9px; }
+.lv-handle::after { content: ""; position: absolute; background: var(--steel-lo); }
+.lever.h .lv-handle::after { left: 4px; right: 4px; top: 11px; height: 2px; }
+.lever.v .lv-handle::after { top: 4px; bottom: 4px; left: 11px; width: 2px; }
+@media (prefers-reduced-motion: reduce) { .lv-handle { transition: none; } }
+
+/* Buttons */
+.btn { font-family: var(--font-ui); font-weight: 700; font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: #2a2f36; padding: 9px 12px; cursor: pointer; border-radius: 0; min-width: 0; user-select: none; touch-action: none; }
+.btn:active, .btn.down { border-color: var(--steel-lo) var(--steel-hi) var(--steel-hi) var(--steel-lo); background: #23272d; }
+.btn:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.btn kbd { font-family: var(--font-mono); font-size: 12px; color: var(--amber); margin: 0 2px; }
+.btn.cheat { width: 110px; height: 110px; margin-top: 18px; font-size: 18px; line-height: 1.2; background: #4a2325; }
+.btn.cheat[aria-pressed="true"] { background: var(--enemy); color: var(--steel-lo); border-color: var(--steel-lo) var(--steel-hi) var(--steel-hi) var(--steel-lo); }
+.btn.side-btn { width: 110px; font-size: 13px; line-height: 1.2; }
+.btn.side-btn[aria-pressed="true"] { background: var(--phos); color: var(--steel-lo); border-color: var(--steel-lo) var(--steel-hi) var(--steel-hi) var(--steel-lo); }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.status { font-family: var(--font-mono); font-size: 12px; color: var(--muted); min-height: 36px; max-width: 280px; }
+
+/* Right column: Track Builder over waterfall + sub noise */
+.a-side { display: grid; gap: 12px; }
+.lcd { background: var(--screen); color: var(--phos); font-family: var(--font-mono); font-size: 13px; padding: 8px 10px; min-height: 92px; display: grid; align-content: start; gap: 1px; }
+.lcd .dim { color: #3f8a4f; }
+.lcd .big { font-size: 17px; font-weight: 600; }
+.wf-row { display: flex; gap: 10px; align-items: stretch; }
+#wf { width: 240px; height: 240px; max-width: 100%; background: var(--screen); display: block; image-rendering: pixelated; }
+.meter { display: grid; grid-template-rows: auto 1fr auto; gap: 6px; justify-items: start; width: 66px; }
+.meter .lbl { font-size: 11px; line-height: 1.2; }
+.meter-bar { width: 22px; height: 100%; min-height: 170px; background: var(--steel-lo); position: relative; cursor: ns-resize; touch-action: none; }
+.meter-fill { position: absolute; left: 0; right: 0; bottom: 0; background: var(--phos); pointer-events: none; }
+.meter-ticks { position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to top, transparent 0 calc(10% - 1px), rgba(0,0,0,.45) calc(10% - 1px) 10%); }
+.meter-tag { position: absolute; left: 22px; width: 40px; height: 18px; margin-top: -9px; background: var(--amber); color: var(--steel-lo); font-family: var(--font-mono); font-size: 11px; font-weight: 600; display: grid; place-items: center; cursor: ns-resize; }
+.meter-tag::before { content: ""; position: absolute; left: -6px; top: 3px; border: 6px solid transparent; border-left: 0; border-right-color: var(--amber); }
+.demo { font-family: var(--font-mono); font-size: 10px; color: var(--muted); line-height: 1.3; }
+
+/* Reference card */
+.ref { background: var(--steel-lo); padding: 10px; display: grid; gap: 8px; }
+.ref-screen { background: #071407; padding: 8px; display: grid; gap: 4px; }
+.ref-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-ui); font-weight: 700; font-size: 15px; min-height: 24px; }
+#refIcon { width: 36px; height: 22px; }
+#refLines { width: 100%; height: 64px; display: block; }
+.keys { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.key { font-family: var(--font-mono); font-size: 12px; padding: 4px 0; min-width: 0; text-align: center; background: #2a2f36; color: var(--ink); cursor: pointer; border-radius: 0; }
+.key[aria-pressed="true"] { background: var(--ink); color: var(--steel-lo); border-color: var(--steel-lo) var(--steel-hi) var(--steel-hi) var(--steel-lo); }
+.key:focus-visible { outline: 2px solid var(--amber); outline-offset: 1px; }
+
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--steel-hi); padding: 0 4px; }
+
+/* Proposal switches */
+.ideas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); background: #1d2126; border: 1px solid #2c3239; }
+.idea { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; padding: 12px 14px; border: 0 solid #2c3239; border-width: 0 1px 1px 0; cursor: pointer; }
+.idea input { appearance: none; width: 18px; height: 18px; margin: 3px 0 0; border: 2px solid var(--steel-hi); background: var(--steel-lo); cursor: pointer; display: grid; place-content: center; }
+.idea input:checked { background: var(--phos); border-color: var(--phos); }
+.idea input:checked::after { content: ""; width: 6px; height: 6px; background: var(--steel-lo); }
+.idea input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.idea input:disabled { opacity: .4; }
+.idea b { font-weight: 600; }
+.idea .num { font-family: var(--font-mono); color: var(--amber); margin-right: 6px; }
+.idea p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.foot { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+</style>
+
+<div class="page">
+  <div>
+    <h1>Sonar Station Proposals</h1>
+    <p class="intro">A working mockup of the sonar station with the proposed changes switched on. Turn a switch off to see that part as the game plays today. The contacts are a fixed example scenario.</p>
+  </div>
+
+  <div class="station bevel">
+    <div class="a-mode group">
+      <span class="lbl">Sonar</span>
+      <div class="lamp" id="lamp" aria-hidden="true"></div>
+      <div id="modeLever" aria-label="Sonar mode"></div>
+      <span class="lbl" id="pingLbl">Ping range</span>
+      <div id="pingLever" aria-label="Active ping range"></div>
+      <button class="btn bevel cheat" id="cheat" type="button" aria-pressed="false">Cheat<br>mode</button>
+      <button class="btn bevel side-btn" id="scramble" type="button">Scramble units</button>
+      <button class="btn bevel side-btn" id="moving" type="button" aria-pressed="false">Move units</button>
+    </div>
+
+    <div class="a-plot">
+      <canvas id="plot" aria-label="Sonar plot. Drag to aim the hydrophone."></canvas>
+    </div>
+
+    <div class="a-side">
+      <div class="lcd inset" id="tb" aria-live="polite"></div>
+      <div class="wf-row">
+        <canvas id="wf" class="inset" width="240" height="240" aria-label="Waterfall plot"></canvas>
+        <div class="meter" id="meterBox">
+          <span class="lbl">Sub<br>noise</span>
+          <div class="meter-bar inset" id="meterBar" role="slider" tabindex="0" aria-label="Sub noise (demo)" aria-valuemin="0" aria-valuemax="100">
+            <div class="meter-fill" id="meterFill"></div><div class="meter-ticks"></div>
+            <div class="meter-tag" id="meterTag">40%</div>
+          </div>
+          <span class="demo">Drag the tag (demo only)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="a-hydro group">
+      <span class="lbl">Hydrophone</span>
+      <div class="btn-row">
+        <button class="btn bevel" id="rotL" type="button"><kbd>A</kbd> ◄</button>
+        <button class="btn bevel" id="rotR" type="button">► <kbd>D</kbd></button>
+      </div>
+      <div id="widthLever" aria-label="Hydrophone cone width"></div>
+      <div class="btn-row">
+        <button class="btn bevel" id="narrow" type="button"><kbd>S</kbd> Narrow</button>
+        <button class="btn bevel" id="widen" type="button">Wide <kbd>W</kbd></button>
+      </div>
+      <span class="readout" id="nav"></span>
+    </div>
+
+    <div class="a-tags group">
+      <span class="lbl">Tags</span>
+      <div class="btn-row">
+        <button class="btn bevel" id="addTag" type="button">Add tag <kbd>T</kbd></button>
+        <button class="btn bevel" id="removeTag" type="button">Remove tag <kbd>R</kbd></button>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="a-ref ref inset">
+      <div class="ref-screen">
+        <div class="ref-name"><canvas id="refIcon" width="72" height="44"></canvas><span id="refName"></span></div>
+        <canvas id="refLines" width="600" height="128"></canvas>
+      </div>
+      <div class="keys" id="keys" role="group" aria-label="Comparison reference"></div>
+    </div>
+  </div>
+
+  <div class="ideas" id="ideas">
+    <label class="idea"><input type="checkbox" id="i-cone" checked><span><b><span class="num">1</span>Hydrophone cone</b><p>The hydrophone listens across a 10° cone. Everything inside it draws on the waterfall at once, fainter with range. Sources on the same frequency add up and read brighter.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-width" checked><span><b><span class="num">1.5</span>Wide search</b><p>Widen the cone to 20° or 35° to sweep faster. Lines get dimmer and sources mix more.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-noise" checked><span><b><span class="num">2</span>Sub noise meter</b><p>The sub's own noise shows beside the waterfall and raises its noise floor.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-gems" checked><span><b><span class="num">3</span>Collectible tone</b><p>Gems give off one faint line at the top of the frequency range, audible at short range.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-track" checked><span><b><span class="num">4</span>Track Builder 5000</b><p>In passive, hold a contact inside the cone to build a track. It gives a green dot and range, not an identity.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-ping" checked><span><b><span class="num">6</span>Active ping</b><p>Active fires a ping every 4 s. Contacts it finds fade over 8 s unless the hydrophone stays on them. Ping range is 600, 400 or 200, and each ping briefly adds 40%, 20% or 10% sub noise.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-audio" checked><span><b><span class="num">7</span>Stereo hydrophone audio</b><p>Each contact in the cone hums, panned left or right by where it sits in the cone. If it sounds right, tap D to centre it. Sound starts after your first click.</p></span></label>
+    <label class="idea"><input type="checkbox" id="i-num" checked><span><b><span class="num">5</span>Track numbers</b><p>Ships and subs are numbered 7001 to 7099 as they appear, with range, and depth for submarines. A lost contact gets a new number when found again.</p></span></label>
+  </div>
+
+  <div class="foot">
+    <p class="hint">Drag on the plot to aim, or hold <kbd>A</kbd> <kbd>D</kbd>. <kbd>W</kbd> <kbd>S</kbd> change the cone width. <kbd>1</kbd>–<kbd>0</kbd> pick a reference.</p>
+    <button class="btn bevel" id="reset" type="button">Reset</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Data ----------
+  // Line positions in slots from the centre line (1 slot = 1/30 of the screen width), measured from in-game references.
+  const TYPES = {
+    fishing:   { name: 'Civil Fishing Boat',     side: 'civil', rows: [[-6, 6]],                 sl: 120 },
+    tug:       { name: 'Civil Tugboat',          side: 'civil', rows: [[6, 7]],                  sl: 124 },
+    tanker:    { name: 'Civil Oil Tanker',       side: 'civil', rows: [[-6, -5, 6, 7]],          sl: 134 },
+    container: { name: 'Civil Container Ship',   side: 'civil', rows: [[-7, -6, -5, 6, 7, 8]],   sl: 138 },
+    whale:     { name: 'Whale',                  side: 'civil', rows: [[-6, 7], [-5, 6]], dashed: true, card: [0, 1, 0], sl: 126 },
+    sub:       { name: 'Enemy Submarine',        side: 'enemy', rows: [[0]],                     sl: 122, depth: true },
+    frigate:   { name: 'Enemy Frigate',          side: 'enemy', rows: [[-2, 2]],                 sl: 128 },
+    destroyer: { name: 'Enemy Destroyer',        side: 'enemy', rows: [[-3.5, 0, 3.5]],          sl: 132 },
+    carrier:   { name: 'Enemy Aircraft Carrier', side: 'enemy', rows: [[-2, -1, 0, 1, 2]],       sl: 140 },
+    kraken:    { name: 'Hostile Kraken',         side: 'enemy', rows: [[-4, -1.6, 1.8, 5.7], [-5.4, -2.6, 0, 3.7, 6.8]], dashed: true, card: [0, 1], sl: 136 },
+    gem:       { name: 'Gem',                    side: 'gem',   rows: [[11]],                    sl: 114 },
+  };
+  const REF_ORDER = ['fishing', 'tug', 'tanker', 'container', 'whale', 'sub', 'frigate', 'destroyer', 'carrier', 'kraken'];
+  const SIDE_COL = { civil: '#4b8fe8', enemy: '#e5534b', gem: '#e06cf0' };
+
+  // type, bearing (deg), range (units), heading (deg), depth. Units hold still; heading only drives the chevron.
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function scenario(scramble) {
+    const b = scramble ? () => rnd(0, 360) : null, h = () => Math.round(rnd(0, 360));
+    const g = scramble ? b() : 32, single = scramble ? b() : 250, sub = scramble ? b() : 290,
+          stack = scramble ? b() : 140, close = scramble ? b() : 205, gh = scramble ? h() : 100;
+    // last two fields: depth, orbit group
+    return [
+      // group of three at long range
+      ['carrier',   g,     scramble ? rnd(820, 900) : 870, gh, null, 'group'],
+      ['destroyer', g - 5, scramble ? rnd(860, 940) : 910, gh, null, 'group'],
+      ['frigate',   g + 4, scramble ? rnd(780, 850) : 820, gh, null, 'group'],
+      // single at long range
+      ['container', single, scramble ? rnd(800, 950) : 900, scramble ? h() : 340, null, 'single'],
+      // submarine at medium range
+      ['sub',       sub, scramble ? rnd(350, 550) : 450, scramble ? h() : 200, scramble ? Math.round(rnd(60, 300) / 10) * 10 : 140, 'sub'],
+      // frigate directly opposite the sub, sharing its orbit so it stays opposite
+      ['frigate',   sub + 180, scramble ? rnd(350, 550) : 450, scramble ? h() : 20, null, 'sub'],
+      // two stacked on one bearing
+      ['tug',       stack, scramble ? rnd(220, 320) : 280, scramble ? h() : 140, null, 'stack'],
+      ['destroyer', stack, scramble ? rnd(740, 860) : 800, scramble ? h() : 60, null, 'stack'],
+      // close range
+      ['fishing',   close, scramble ? rnd(100, 190) : 140, scramble ? h() : 270, null, 'close'],
+      // collectibles
+      ['gem', scramble ? b() : 95,  scramble ? rnd(150, 450) : 200, 0, null, null],
+      ['gem', scramble ? b() : 330, scramble ? rnd(150, 450) : 260, 0, null, null],
+    ];
+  }
+
+  const PLOT_RANGE = 1000, ACTIVE_RANGE = 600;
+  const WIDTHS = [10, 20, 35];
+  const AMBIENT = 50; // dB
+  const GAIN = -8;    // overall hydrophone gain, dB
+
+  // ---------- State ----------
+  let S;
+  function reset(scramble) {
+    S = {
+      t: 0, own: { x: 0, y: 0, hdg: 0 }, active: S ? S.active : true, hydro: S ? S.hydro : 140, widthIdx: S ? S.widthIdx : 0,
+      noise: S ? S.noise : 40, ref: S ? S.ref : 6, cheat: S ? S.cheat : false,
+      pingIdx: S ? S.pingIdx : 0, moving: S ? S.moving : false,
+      nextPing: 0, pingStart: -99, pingId: 0, spikeAmt: 0,
+      nextNum: 7001, contacts: [], tb: { target: null, flash: '', flashT: 0, remaining: 0 }, status: '',
+      ideas: S ? S.ideas : { cone: true, width: true, noise: true, gems: true, track: true, num: true, ping: true, audio: true },
+    };
+    scenario(scramble).forEach((s, i) => {
+      S.contacts.push({ id: i, type: s[0], brg: wrap(s[1]), r0: s[2], x: 0, y: 0, hdg: s[3], depth: s[4] || null, group: s[5],
+        omega: 0, ph: i * 1.37 + 0.4, num: null, tag: null, tracked: false, acq: 0, build: 0,
+        lastSeen: -Infinity, px: 0, py: 0, pingId: -1 });
+    });
+    // Orbits: every unit in a group shares one angular speed, so formations hold shape and stacks hold bearing
+    // turn rate in degrees per second (sign = direction). Close unit laps in 40 s; the stack stays slow so its outer unit isn't absurdly fast.
+    const ORBIT = { group: 1.2, single: -1.2, sub: 2, stack: -1.2, close: 9 };
+    for (const [grp, w] of Object.entries(ORBIT)) {
+      const d = scramble ? (Math.random() < 0.5 ? -1 : 1) : 1;
+      S.contacts.filter(c => c.group === grp).forEach(c => { c.omega = w * d; });
+    }
+    S.contacts.forEach(placeContact);
+    syncControls();
+    prefillWaterfall();
+  }
+
+  function placeContact(c) { c.x = Math.sin(rad(c.brg)) * c.r0; c.y = Math.cos(rad(c.brg)) * c.r0; }
+
+  // ---------- Geometry / acoustics ----------
+  const rad = d => d * Math.PI / 180;
+  const wrap = d => ((d % 360) + 360) % 360;
+  const angDiff = (a, b) => ((a - b + 540) % 360) - 180;
+  const width = () => WIDTHS[S.widthIdx];
+  function rel(c) {
+    const dx = c.x - S.own.x, dy = c.y - S.own.y;
+    return { r: Math.hypot(dx, dy), brg: wrap(Math.atan2(dx, dy) * 180 / Math.PI) };
+  }
+  // Active ping
+  const PING_RANGES = [600, 400, 200], PING_NOISE = [40, 20, 10];
+  const PING_EVERY = 4, PING_SPEED = 600, PING_FADE = 8; // seconds, units per second, seconds
+  const activeRange = () => S.ideas.ping ? PING_RANGES[S.pingIdx] : ACTIVE_RANGE;
+  const spike = () => S.ideas.ping ? S.spikeAmt * Math.max(0, 1 - (S.t - S.pingStart)) : 0; // fades over 1 s
+  const effNoise = () => Math.min(100, S.noise + spike());
+
+  function noiseLevel() {
+    if (!S.ideas.noise) return AMBIENT + 2;
+    const noise = effNoise();
+    // Sub noise % -> self-noise dB. Quiet below ~50%, climbs hard from 60% (cruising) up.
+    const pts = [[0, 30], [40, 44], [60, 60], [80, 66.5], [100, 70]];
+    let self = 70;
+    for (let i = 1; i < pts.length; i++) {
+      if (noise <= pts[i][0]) {
+        const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+        self = y0 + (y1 - y0) * (noise - x0) / (x1 - x0); break;
+      }
+    }
+    return 10 * Math.log10(10 ** (AMBIENT / 10) + 10 ** (self / 10));
+  }
+  const TL = r => 20 * Math.log10(Math.max(r, 20)) + 0.01 * r;
+  const coneHalf = () => S.ideas.cone ? (S.ideas.width ? width() : 10) / 2 : 1.5;
+  // Same ratio as the find-stage penalty, as power: 20° keeps 50% (-3 dB), 35° keeps 28.6% (-5.4 dB)
+  const coneGain = () => (S.ideas.cone && S.ideas.width) ? 10 * Math.log10(10 / WIDTHS[S.widthIdx]) : 0;
+  function beamLoss(off) {
+    const a = Math.abs(off), hw = coneHalf();
+    return a <= hw ? 3 * (a / hw) ** 2 : 3 + 40 * (a - hw) / hw;
+  }
+  const audible = c => c.type !== 'gem' || S.ideas.gems;
+  const recv = (c, R) => TYPES[c.type].sl + GAIN - TL(R.r) + coneGain() - beamLoss(angDiff(R.brg, S.hydro));
+  const snr = (c, R, NL) => recv(c, R) - NL;
+  const snrOmni = (c, R, NL) => TYPES[c.type].sl + GAIN - TL(R.r) - NL;
+
+  // What the waterfall hears right now
+  function heard() {
+    const list = [];
+    for (const c of S.contacts) {
+      if (!audible(c)) continue;
+      const R = rel(c), off = Math.abs(angDiff(R.brg, S.hydro));
+      if (S.ideas.cone) {
+        if (off <= coneHalf() * 1.6) list.push({ c, R, L: recv(c, R) - AMBIENT });
+      } else if (off <= 3) {
+        list.push({ c, R, L: TYPES[c.type].sl + GAIN - TL(R.r) - AMBIENT });
+      }
+    }
+    if (!S.ideas.cone && list.length > 1) { list.sort((a, b) => b.L - a.L); list.length = 1; } // today: one unit at a time
+    return list;
+  }
+
+  // ---------- Waterfall ----------
+  const wf = document.getElementById('wf'), wfx = wf.getContext('2d');
+  const W = wf.width, H = wf.height, SLOT = W / 30, CX = W / 2;
+  const rowImg = wfx.createImageData(W, 1), P = new Float32Array(W);
+  const pmod = (a, n) => ((a % n) + n) % n;
+  function wfRow() {
+    const NL = noiseLevel(), nLin = 10 ** ((NL - AMBIENT) / 10);
+    for (let x = 0; x < W; x++) P[x] = nLin * -Math.log(Math.random() + 1e-6);
+    for (const h of heard()) {
+      const T = TYPES[h.c.type];
+      let row = T.rows[0];
+      if (T.dashed) {
+        const per = 0.6;
+        if (pmod(S.t, per) > per * 0.7) continue;
+        row = T.rows[pmod(Math.floor(S.t / per), T.rows.length)];
+      }
+      const lin = 10 ** (h.L / 10);
+      const amp = 0.1 + 1.3 * Math.min(1, h.R.r / PLOT_RANGE) ** 1.5;
+      const wig = amp * (0.6 * Math.sin(S.t * 1.7 + h.c.ph) + 0.4 * Math.sin(S.t * 4.3 + h.c.ph * 2));
+      for (const s of row) {
+        const xs = CX + (s + wig + amp * 0.25 * Math.sin(S.t * 2.9 + s * 1.3 + h.c.ph)) * SLOT;
+        for (let x = Math.max(0, Math.floor(xs - 4)); x <= Math.min(W - 1, Math.ceil(xs + 4)); x++) {
+          P[x] += lin * Math.exp(-((x - xs) ** 2) / 2.6);
+        }
+      }
+    }
+    const d = rowImg.data;
+    for (let x = 0; x < W; x++) {
+      const b = Math.max(0, Math.min(1, (10 * Math.log10(P[x]) + 2) / 28));
+      d[x * 4] = 22 + 150 * b ** 3; d[x * 4 + 1] = 36 + 215 * b; d[x * 4 + 2] = 20 + 110 * b ** 3; d[x * 4 + 3] = 255;
+    }
+    wfx.drawImage(wf, 0, 0, W, H - 1, 0, 1, W, H - 1);
+    wfx.putImageData(rowImg, 0, 0);
+  }
+  function prefillWaterfall() {
+    wfx.fillStyle = '#16240f'; wfx.fillRect(0, 0, W, H);
+    const t0 = S.t;
+    for (let i = 0; i < H; i++) { S.t = t0 - (H - i) * 0.1; wfRow(); }
+    S.t = t0;
+  }
+
+  // ---------- Tracks and numbering ----------
+  function nextNum() { const n = S.nextNum; S.nextNum = n >= 7099 ? 7001 : n + 1; return n; }
+  const TRACK_GRACE = 0.5, TRACK_FADE = 3; // seconds after the hydrophone leaves a passive track
+  const BUILD_GRACE = 1.5;                 // seconds a contact can slip out of the cone while finding or building
+  const FIND_SHARE = 0.2;                  // hidden find stage as a share of the total track time
+  function updateHolds(NL, dt = 0) {
+    const hw = S.ideas.cone ? coneHalf() : 3;
+    for (const c of S.contacts) {
+      const R = rel(c);
+      if (!S.ideas.ping) {
+        // today: active shows everything inside active range, live
+        if (S.active && R.r <= ACTIVE_RANGE) { c.lastSeen = S.t; c.px = c.x; c.py = c.y; }
+        else c.lastSeen = -Infinity;
+      } else if (S.active && pingAlive(c) && Math.abs(angDiff(dispBrg(c), S.hydro)) <= hw) {
+        // hydrophone on an active contact keeps it solid and live
+        c.lastSeen = S.t; c.px = c.x; c.py = c.y;
+      }
+      if (c.type === 'gem') continue;
+      if (c.tracked) {
+        // A passive track holds only while the hydrophone stays on it
+        const onIt = Math.abs(angDiff(R.brg, S.hydro)) <= hw && snrOmni(c, R, NL) >= -3;
+        c.offT = onIt ? 0 : (c.offT || 0) + dt;
+        if (c.offT >= TRACK_GRACE + TRACK_FADE) { c.tracked = false; c.offT = 0; }
+      }
+      const seen = pingAlive(c) || c.tracked;
+      if (seen && c.num === null) c.num = nextNum();
+      if (!seen && c.num !== null) { c.num = null; c.tag = null; }
+    }
+  }
+  const visible = c => c.type !== 'gem' && c.num !== null;
+  const pingAlive = c => S.t - c.lastSeen < PING_FADE;
+  const pingAlpha = c => S.ideas.ping ? Math.max(0, 1 - (S.t - c.lastSeen) / PING_FADE) : (pingAlive(c) ? 1 : 0);
+  // Where the operator sees a contact: live for passive tracks, otherwise where the last ping found it
+  function dispPos(c) {
+    if (c.tracked || !S.ideas.ping) return { x: c.x, y: c.y };
+    return { x: c.px, y: c.py };
+  }
+  function dispBrg(c) { const p = dispPos(c); return wrap(Math.atan2(p.x - S.own.x, p.y - S.own.y) * 180 / Math.PI); }
+
+  function trackBuilder(dt, NL) {
+    const tb = S.tb, decay = dt / 3; // full progress drains in 3 seconds
+    if (!S.ideas.track || S.active) {
+      for (const c of S.contacts) { c.acq = Math.max(0, c.acq - decay); c.build = Math.max(0, c.build - decay); }
+      tb.target = null; return;
+    }
+    const hw = coneHalf();
+    // Signal as if centred in the cone: where the contact sits inside the cone doesn't change the timing
+    const trackSnr = (c, R) => TYPES[c.type].sl + GAIN - TL(R.r) + coneGain() - NL;
+    const inCone = (c, R) => Math.abs(angDiff(R.brg, S.hydro)) <= hw && trackSnr(c, R) >= 0;
+    let target = tb.target !== null ? S.contacts[tb.target] : null;
+    // Keep the current target while it stays in the cone, even if something closer passes in front.
+    // A short grace lets a drifting contact slip to the edge without losing progress.
+    if (target && target.tracked) target = null;
+    if (target) {
+      if (inCone(target, rel(target))) target.lostT = 0;
+      else {
+        target.lostT = (target.lostT || 0) + dt;
+        if (target.lostT > BUILD_GRACE) { target.lostT = 0; target = null; }
+      }
+    }
+    if (!target) {
+      let bestR = Infinity;
+      for (const c of S.contacts) {
+        if (c.type === 'gem' || c.tracked) continue;
+        const R = rel(c);
+        if (inCone(c, R) && R.r < bestR) { target = c; bestR = R.r; }
+      }
+    }
+    tb.target = target ? target.id : null;
+    for (const c of S.contacts) {
+      if (c === target) continue;
+      c.acq = Math.max(0, c.acq - decay); c.build = Math.max(0, c.build - decay);
+    }
+    if (!target) return; // progress keeps going through the grace, so small slips while steering don't stall it
+    const s = trackSnr(target, rel(target));
+    // Louder targets track faster, non-linearly: time doubles for every 6.5 dB of signal lost.
+    // About 10 s at 15 dB over the noise (loud), 20 s at 8 dB (medium), 50 s at 0 dB (quiet). Floor 8 s, cap 90 s.
+    const total = Math.max(8, Math.min(90, 10 * 2 ** ((15 - s) / 6.5)));
+    // Hidden find stage is the first 20%
+    if (target.acq < 1) { target.acq = Math.min(1, target.acq + dt / (total * FIND_SHARE)); return; }
+    const buildTime = total * (1 - FIND_SHARE);
+    target.build += dt / buildTime;
+    tb.remaining = Math.max(0, (1 - target.build) * buildTime);
+    if (target.build >= 1) {
+      target.tracked = true; target.build = 0; target.acq = 0;
+      updateHolds(NL);
+      tb.flash = S.ideas.num ? `TRACK ${target.num} ESTABLISHED` : 'TRACK ESTABLISHED';
+      tb.flashT = 2.5; tb.target = null;
+    }
+  }
+
+  function selected() {
+    const hw = S.ideas.cone ? coneHalf() : 3;
+    let best = null, bestOff = Infinity;
+    for (const c of S.contacts) {
+      if (!visible(c)) continue;
+      const off = Math.abs(angDiff(dispBrg(c), S.hydro));
+      if (off <= hw && off < bestOff) { best = c; bestOff = off; }
+    }
+    return best;
+  }
+
+  // ---------- Simulation step ----------
+  function step(dt) {
+    S.t += dt;
+    if (S.moving) {
+      for (const c of S.contacts) {
+        if (!c.omega) continue;
+        c.brg = wrap(c.brg + c.omega * dt); placeContact(c);
+        c.hdg = wrap(c.brg + (c.omega > 0 ? 90 : -90)); // course is the tangent of the orbit
+      }
+    }
+    // Active ping: fire every 4 s, the pulse marks contacts as it passes them
+    if (S.ideas.ping) {
+      // A ping only fires while active is on, but once fired it finishes its sweep even if active is switched off
+      if (S.active && S.t >= S.nextPing) {
+        S.pingStart = S.t; S.pingId++; S.nextPing = S.t + PING_EVERY; S.spikeAmt = PING_NOISE[S.pingIdx];
+        pingSound();
+      }
+      const sweep = (S.t - S.pingStart) * PING_SPEED;
+      if (sweep <= activeRange() + 30) { // only while the pulse is travelling out
+        const ringR = Math.min(activeRange(), sweep);
+        for (const c of S.contacts) {
+          if (c.pingId === S.pingId) continue;
+          if (rel(c).r <= ringR) { c.pingId = S.pingId; c.lastSeen = S.t; c.px = c.x; c.py = c.y; }
+        }
+      }
+    }
+    const NL = noiseLevel();
+    updateHolds(NL, dt);
+    trackBuilder(dt, NL);
+    if (S.tb.flashT > 0) S.tb.flashT -= dt;
+  }
+
+  // ---------- Icons ----------
+  function drawIcon(g, type, x, y, s, col) {
+    g.save(); g.translate(x, y); g.fillStyle = col; g.strokeStyle = col; g.lineWidth = Math.max(1, s * 0.12);
+    g.beginPath();
+    switch (type) {
+      case 'whale':
+        g.ellipse(s * 0.1, 0, s * 0.55, s * 0.32, 0, 0, Math.PI * 2); g.fill();
+        g.beginPath(); g.moveTo(-s * 0.4, 0); g.lineTo(-s * 0.85, -s * 0.35); g.lineTo(-s * 0.85, s * 0.3); g.closePath(); g.fill(); break;
+      case 'sub':
+        g.ellipse(0, s * 0.1, s * 0.75, s * 0.22, 0, 0, Math.PI * 2); g.fill();
+        g.fillRect(-s * 0.1, -s * 0.35, s * 0.28, s * 0.35); break;
+      case 'kraken':
+        g.arc(0, -s * 0.2, s * 0.32, 0, Math.PI * 2); g.fill();
+        for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(k * s * 0.12, 0); g.lineTo(k * s * 0.3, s * 0.55); g.stroke(); } break;
+      case 'gem':
+        g.moveTo(0, -s * 0.5); g.lineTo(s * 0.4, 0); g.lineTo(0, s * 0.5); g.lineTo(-s * 0.4, 0); g.closePath(); g.fill(); break;
+      default: {
+        g.moveTo(-s * 0.8, 0); g.lineTo(s * 0.8, 0); g.lineTo(s * 0.55, s * 0.38); g.lineTo(-s * 0.6, s * 0.38); g.closePath(); g.fill();
+        const sup = { carrier: [-0.8, -0.12, 1.6, 0.12], container: [-0.55, -0.4, 0.9, 0.4], tanker: [-0.6, -0.25, 0.3, 0.25],
+          tug: [-0.15, -0.45, 0.4, 0.45], fishing: [-0.3, -0.35, 0.3, 0.35], frigate: [-0.2, -0.5, 0.35, 0.5], destroyer: [-0.35, -0.5, 0.55, 0.5] }[type] || [-0.2, -0.4, 0.4, 0.4];
+        g.fillRect(sup[0] * s, sup[1] * s, sup[2] * s, sup[3] * s);
+        if (type === 'carrier') g.fillRect(s * 0.3, -s * 0.42, s * 0.18, s * 0.3);
+      }
+    }
+    g.restore();
+  }
+
+  // ---------- Plot ----------
+  const plot = document.getElementById('plot'), px = plot.getContext('2d');
+  let PS = 600, DPR = 1;
+  function sizePlot() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    PS = plot.clientWidth || 600;
+    plot.width = Math.round(PS * DPR); plot.height = Math.round(PS * DPR);
+  }
+  const mono = (sz, w = 400) => `${w} ${sz}px "IBM Plex Mono", Consolas, monospace`;
+  function drawPlot() {
+    const g = px, c = PS / 2, R = PS * 0.4, k = R / PLOT_RANGE;
+    g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    g.clearRect(0, 0, PS, PS);
+    g.fillStyle = '#1e2227'; g.beginPath(); g.arc(c, c, PS * 0.497, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#2b3a1a'; g.beginPath(); g.arc(c, c, PS * 0.48, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#132410'; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
+    // compass
+    g.strokeStyle = '#d9a13d'; g.fillStyle = '#d9a13d'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let d = 0; d < 360; d += 5) {
+      const a = rad(d - 90), r0 = R + 2, r1 = R + (d % 10 === 0 ? PS * 0.022 : PS * 0.012);
+      g.lineWidth = 1; g.beginPath(); g.moveTo(c + Math.cos(a) * r0, c + Math.sin(a) * r0); g.lineTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1); g.stroke();
+      if (d % 10 === 0) {
+        const card = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' }[d], rl = R + PS * 0.05;
+        g.font = card ? `700 ${PS * 0.04}px "Saira Semi Condensed", sans-serif` : mono(PS * 0.018);
+        if (card || PS > 420 || d % 30 === 0) g.fillText(card || String(d).padStart(3, '0'), c + Math.cos(a) * rl, c + Math.sin(a) * rl);
+      }
+    }
+    g.lineWidth = 1.5; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = 'rgba(98,224,122,0.10)'; g.lineWidth = 1;
+    for (let d = 0; d < 360; d += 30) { const a = rad(d - 90); g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * R, c + Math.sin(a) * R); g.stroke(); }
+    // range rings every 200 units
+    g.font = mono(PS * 0.017); g.textAlign = 'left'; g.textBaseline = 'bottom';
+    for (let r = 200; r <= PLOT_RANGE; r += 200) {
+      const act = r === activeRange();
+      g.strokeStyle = act ? '#62e07a' : 'rgba(98,224,122,0.35)'; g.lineWidth = act ? 3 : 1;
+      g.beginPath(); g.arc(c, c, r * k, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = act ? '#62e07a' : 'rgba(98,224,122,0.6)';
+      const a = rad(225 - 90);
+      g.fillText(String(r), c + Math.cos(a) * r * k + 3, c + Math.sin(a) * r * k - 2);
+    }
+    {
+      const a = rad(315 - 90), x = c + Math.cos(a) * activeRange() * k, y = c + Math.sin(a) * activeRange() * k;
+      g.font = mono(PS * 0.02, 600); const txt = 'ACTIVE RANGE', w = g.measureText(txt).width;
+      g.fillStyle = '#132410'; g.fillRect(x - w - 10, y - PS * 0.016, w + 8, PS * 0.032);
+      g.fillStyle = '#62e07a'; g.textAlign = 'right'; g.textBaseline = 'middle'; g.fillText(txt, x - 6, y);
+    }
+    // hydrophone
+    const ha = rad(S.hydro - 90);
+    g.strokeStyle = '#d9a13d'; g.fillStyle = '#d9a13d';
+    if (S.ideas.cone) {
+      const hw = rad(coneHalf());
+      g.globalAlpha = 0.16; g.beginPath(); g.moveTo(c, c); g.arc(c, c, R, ha - hw, ha + hw); g.closePath(); g.fill(); g.globalAlpha = 1;
+      g.lineWidth = 1; g.beginPath();
+      g.moveTo(c, c); g.lineTo(c + Math.cos(ha - hw) * R, c + Math.sin(ha - hw) * R);
+      g.moveTo(c, c); g.lineTo(c + Math.cos(ha + hw) * R, c + Math.sin(ha + hw) * R); g.stroke();
+    }
+    g.lineWidth = 2; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(ha) * R, c + Math.sin(ha) * R); g.stroke();
+    const hx = c + Math.cos(ha) * R, hy = c + Math.sin(ha) * R;
+    g.beginPath(); g.moveTo(hx, hy);
+    g.lineTo(hx - Math.cos(ha - 0.35) * PS * 0.025, hy - Math.sin(ha - 0.35) * PS * 0.025);
+    g.lineTo(hx - Math.cos(ha + 0.35) * PS * 0.025, hy - Math.sin(ha + 0.35) * PS * 0.025); g.closePath(); g.fill();
+    // active ping pulse
+    if (S.ideas.ping) {
+      const age = S.t - S.pingStart, sweep = age * PING_SPEED, maxR = activeRange();
+      if (sweep <= maxR + PING_SPEED * 0.4) {
+        g.strokeStyle = '#62e07a'; g.lineWidth = 3;
+        g.globalAlpha = sweep <= maxR ? 0.9 : Math.max(0, 0.9 - (sweep - maxR) / (PING_SPEED * 0.4));
+        g.beginPath(); g.arc(c, c, Math.min(sweep, maxR) * k, 0, Math.PI * 2); g.stroke();
+        g.globalAlpha = 1;
+      }
+    }
+    // own sub heading
+    const oa = rad(S.own.hdg - 90);
+    g.strokeStyle = '#62e07a'; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(oa) * PS * 0.035, c + Math.sin(oa) * PS * 0.035); g.stroke();
+
+    // contacts
+    const sel = selected();
+    const pos = (cc, jitter) => {
+      const Rr = rel(cc);
+      let x = c + Math.sin(rad(Rr.brg)) * Rr.r * k, y = c - Math.cos(rad(Rr.brg)) * Rr.r * k;
+      if (jitter) { const j = (Rr.r / ACTIVE_RANGE) ** 2 * 10 * k; x += j * Math.sin(S.t * 9 + cc.ph); y += j * Math.cos(S.t * 7.3 + cc.ph * 1.7); }
+      return { x, y, R: Rr };
+    };
+    const dpos = cc => {
+      const w = dispPos(cc), dx = w.x - S.own.x, dy = w.y - S.own.y;
+      return { x: c + dx * k, y: c - dy * k, R: { r: Math.hypot(dx, dy) } };
+    };
+    g.textBaseline = 'middle'; g.textAlign = 'left';
+    for (const cc of S.contacts) {
+      const T = TYPES[cc.type];
+      if (S.cheat) {
+        const p = pos(cc, false);
+        if (p.R.r <= PLOT_RANGE) {
+          g.globalAlpha = 0.55; drawIcon(g, cc.type, p.x, p.y, PS * 0.026, '#e1e5ea'); g.globalAlpha = 1;
+          g.fillStyle = 'rgba(225,229,234,0.75)'; g.font = mono(PS * 0.016); g.textAlign = 'center';
+          g.fillText(T.name, p.x, p.y + PS * 0.03); g.textAlign = 'left';
+        }
+      }
+      if (cc.type === 'gem') {
+        if (pingAlive(cc)) {
+          const p = dpos(cc);
+          g.globalAlpha = pingAlpha(cc); drawIcon(g, 'gem', p.x, p.y, PS * 0.03, '#e06cf0'); g.globalAlpha = 1;
+        }
+        continue;
+      }
+      if (!visible(cc)) continue;
+      const p = dpos(cc);
+      // passive tracks fade once the hydrophone leaves them; pinged contacts fade over 8 s
+      const trackA = cc.tracked ? Math.max(0, Math.min(1, 1 - ((cc.offT || 0) - TRACK_GRACE) / TRACK_FADE)) : 0;
+      g.globalAlpha = Math.max(trackA, pingAlpha(cc));
+      if (cc.tag) drawIcon(g, cc.tag, p.x, p.y, PS * 0.026, SIDE_COL[TYPES[cc.tag].side]);
+      else { g.fillStyle = '#62e07a'; g.beginPath(); g.arc(p.x, p.y, PS * 0.008, 0, Math.PI * 2); g.fill(); }
+      if (cc === sel) { g.strokeStyle = '#62e07a'; g.lineWidth = 2; const s = PS * 0.024; g.strokeRect(p.x - s, p.y - s, s * 2, s * 2); }
+      if (cc.tag) {
+        // chevron pointing along the unit's course
+        const ca = rad(cc.hdg - 90), d = PS * 0.038, s = PS * 0.011;
+        const tx = p.x + Math.cos(ca) * d, ty = p.y + Math.sin(ca) * d;
+        g.strokeStyle = '#62e07a'; g.lineWidth = 2; g.beginPath();
+        g.moveTo(tx - Math.cos(ca - 0.8) * s, ty - Math.sin(ca - 0.8) * s); g.lineTo(tx, ty);
+        g.lineTo(tx - Math.cos(ca + 0.8) * s, ty - Math.sin(ca + 0.8) * s); g.stroke();
+      }
+      // stacked label: contact ID, then range and depth once tagged
+      const lines = [];
+      if (S.ideas.num) lines.push(String(cc.num));
+      if (cc.tag) {
+        lines.push(`Rnge: ${Math.round(p.R.r)}`);
+        if (T.depth && cc.depth) lines.push(`Dpth: ${cc.depth}`);
+      }
+      g.font = mono(PS * 0.017, 600); g.fillStyle = '#62e07a';
+      const lh = PS * 0.022, x0 = p.x + PS * 0.03;
+      lines.forEach((ln, i) => g.fillText(ln, x0, p.y - PS * 0.012 + i * lh));
+      g.globalAlpha = 1;
+    }
+    if (!S.active) {
+      g.font = `700 ${PS * 0.03}px "Saira Semi Condensed", sans-serif`; g.textAlign = 'center'; g.fillStyle = '#e5534b';
+      g.fillText('ACTIVE SONAR OFF', c, c + R * 0.88);
+    }
+  }
+
+  // ---------- Panels ----------
+  const $ = id => document.getElementById(id);
+  let tbLast = '';
+  function drawPanels() {
+    $('meterBox').hidden = !S.ideas.noise;
+    if (S.ideas.noise) syncNoise();
+    const tbEl = $('tb');
+    tbEl.hidden = !S.ideas.track;
+    if (S.ideas.track) {
+      let lines;
+      const t = S.tb.target !== null ? S.contacts[S.tb.target] : null;
+      if (S.tb.flashT > 0) lines = [S.tb.flash, '', ''];
+      else if (S.active) lines = ['STANDBY', 'Passive mode only', ''];
+      else if (t && t.acq >= 1) lines = ['BUILDING TRACK', `${Math.ceil(S.tb.remaining)} s`, 'MAINTAIN CONTACT'];
+      else lines = ['SEARCHING FOR TRACK', '', ''];
+      const html = `<span class="dim">TRACK BUILDER 5000</span><span class="big">${lines[0]}</span><span>${lines[1] || '&nbsp;'}</span><span>${lines[2] || '&nbsp;'}</span>`;
+      if (html !== tbLast) { tbEl.innerHTML = html; tbLast = html; } // only touch the DOM on change
+    }
+    const nav = `BEARING ${String(Math.round(wrap(S.hydro))).padStart(3, '0')}°  CONE ${S.ideas.cone ? (S.ideas.width ? width() : 10) + '°' : 'OFF'}`;
+    if ($('nav').textContent !== nav) $('nav').textContent = nav;
+    if ($('status').textContent !== S.status) $('status').textContent = S.status;
+  }
+
+  // ---------- Levers ----------
+  function makeLever(el, opts, vertical, onChange) {
+    el.className = 'lever ' + (vertical ? 'v' : 'h');
+    el.style.setProperty('--n', opts.length);
+    el.tabIndex = 0; el.setAttribute('role', 'slider');
+    el.setAttribute('aria-valuemin', 0); el.setAttribute('aria-valuemax', opts.length - 1);
+    el.innerHTML = `<div class="lv-labels">${opts.map((o, i) => `<span data-i="${i}">${o}</span>`).join('')}</div><div class="lv-slot inset"><div class="lv-handle bevel"></div></div>`;
+    const slot = el.querySelector('.lv-slot'), handle = el.querySelector('.lv-handle'), labels = [...el.querySelectorAll('.lv-labels span')];
+    let idx = 0;
+    function show(i) {
+      idx = i;
+      const f = (i + 0.5) / opts.length;
+      if (vertical) handle.style.top = `calc(${f * 100}% - 10px - 3px)`;
+      else handle.style.left = `calc(${f * 100}% - 10px - 3px)`;
+      labels.forEach((l, j) => l.classList.toggle('on', j === i));
+      el.setAttribute('aria-valuenow', i); el.setAttribute('aria-valuetext', opts[i]);
+    }
+    function choose(i) { i = Math.max(0, Math.min(opts.length - 1, i)); if (i !== idx) { show(i); onChange(i); } }
+    function fromPointer(e) {
+      const lab = e.target.closest('[data-i]');
+      if (lab) return +lab.dataset.i;
+      const r = slot.getBoundingClientRect();
+      const f = vertical ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
+      return Math.floor(Math.max(0, Math.min(0.999, f)) * opts.length);
+    }
+    let drag = false;
+    el.addEventListener('pointerdown', e => { drag = true; el.setPointerCapture(e.pointerId); el.focus(); choose(fromPointer(e)); e.preventDefault(); });
+    el.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const r = slot.getBoundingClientRect();
+      const f = vertical ? (e.clientY - r.top) / r.height : (e.clientX - r.left) / r.width;
+      choose(Math.floor(Math.max(0, Math.min(0.999, f)) * opts.length));
+    });
+    el.addEventListener('pointerup', () => { drag = false; });
+    el.addEventListener('pointercancel', () => { drag = false; });
+    el.addEventListener('keydown', e => {
+      const fwd = vertical ? 'ArrowDown' : 'ArrowRight', back = vertical ? 'ArrowUp' : 'ArrowLeft';
+      if (e.key === fwd) { choose(idx + 1); e.preventDefault(); e.stopPropagation(); }
+      if (e.key === back) { choose(idx - 1); e.preventDefault(); e.stopPropagation(); }
+    });
+    show(0);
+    return { show };
+  }
+  const modeLever = makeLever($('modeLever'), ['ACTIVE', 'PASSIVE'], true, i => {
+    S.active = i === 0;
+    if (S.active) S.nextPing = S.t; // first ping fires as soon as active comes on
+    syncControls();
+  });
+  const pingLever = makeLever($('pingLever'), ['600', '400', '200'], true, i => { S.pingIdx = i; syncControls(); });
+  const widthLever = makeLever($('widthLever'), ['10°', '20°', '35°'], false, i => { S.widthIdx = i; syncControls(); });
+
+  // ---------- Sub noise meter (drag the tag) ----------
+  function setNoise(v) { S.noise = Math.round(Math.max(0, Math.min(100, v))); syncNoise(); }
+  function syncNoise() {
+    const n = S.noise, e = Math.round(effNoise()); // the tag is the set level, the bar includes ping spikes
+    $('meterFill').style.height = e + '%';
+    $('meterFill').style.background = e >= 75 ? '#e5534b' : e >= 50 ? '#d9a13d' : '#62e07a';
+    $('meterTag').style.top = (100 - n) + '%';
+    $('meterTag').textContent = n + '%';
+    $('meterBar').setAttribute('aria-valuenow', n);
+  }
+  {
+    const bar = $('meterBar'); let drag = false;
+    const fromY = e => { const r = bar.getBoundingClientRect(); setNoise((1 - (e.clientY - r.top) / r.height) * 100); };
+    bar.addEventListener('pointerdown', e => { drag = true; bar.setPointerCapture(e.pointerId); fromY(e); e.preventDefault(); });
+    bar.addEventListener('pointermove', e => { if (drag) fromY(e); });
+    bar.addEventListener('pointerup', () => { drag = false; });
+    bar.addEventListener('pointercancel', () => { drag = false; });
+    bar.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp') { setNoise(S.noise + 5); e.preventDefault(); e.stopPropagation(); }
+      if (e.key === 'ArrowDown') { setNoise(S.noise - 5); e.preventDefault(); e.stopPropagation(); }
+    });
+  }
+
+  // ---------- Reference card ----------
+  const refIcon = $('refIcon').getContext('2d'), refLines = $('refLines').getContext('2d');
+  function drawRef() {
+    const type = REF_ORDER[S.ref], T = TYPES[type];
+    $('refName').textContent = T.name;
+    refIcon.clearRect(0, 0, 72, 44); drawIcon(refIcon, type, 36, 20, 34, SIDE_COL[T.side]);
+    const g = refLines, w = 600, h = 128, slot = w / 30;
+    g.fillStyle = '#071407'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1f6b2e'; g.fillRect(w / 2 - 2, 0, 4, h);
+    g.fillStyle = '#ffffff';
+    const order = T.card || [0], segH = (h - 20) / order.length;
+    order.forEach((ri, i) => {
+      for (const s of T.rows[ri]) g.fillRect(w / 2 + s * slot - 3, 10 + i * segH, 6, T.dashed ? segH * 0.7 : segH);
+    });
+    document.querySelectorAll('.key').forEach((kk, i) => kk.setAttribute('aria-pressed', String(i === S.ref)));
+  }
+  REF_ORDER.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'key bevel'; b.textContent = String(i + 1); b.setAttribute('aria-label', `${i + 1}: ${TYPES[t].name}`);
+    b.addEventListener('click', () => { S.ref = i; drawRef(); });
+    $('keys').appendChild(b);
+  });
+
+  // ---------- Controls ----------
+  const IDEAS = { 'i-cone': 'cone', 'i-width': 'width', 'i-noise': 'noise', 'i-gems': 'gems', 'i-track': 'track', 'i-num': 'num', 'i-ping': 'ping', 'i-audio': 'audio' };
+  function syncControls() {
+    modeLever.show(S.active ? 0 : 1);
+    $('lamp').classList.toggle('off', !S.active);
+    widthLever.show(S.widthIdx);
+    const wOK = S.ideas.cone && S.ideas.width;
+    for (const id of ['widthLever', 'widen', 'narrow']) $(id).hidden = !wOK;
+    for (const [id, k] of Object.entries(IDEAS)) $(id).checked = S.ideas[k];
+    $('i-width').disabled = !S.ideas.cone;
+    $('cheat').setAttribute('aria-pressed', String(S.cheat));
+    $('moving').setAttribute('aria-pressed', String(S.moving));
+    pingLever.show(S.pingIdx);
+    $('pingLever').hidden = $('pingLbl').hidden = !S.ideas.ping;
+    syncNoise();
+    drawRef();
+  }
+  Object.entries(IDEAS).forEach(([id, k]) => $(id).addEventListener('change', e => { S.ideas[k] = e.target.checked; syncControls(); ensureAudio(); }));
+  $('reset').addEventListener('click', () => reset(false));
+  $('scramble').addEventListener('click', () => reset(true));
+  $('cheat').addEventListener('click', () => { S.cheat = !S.cheat; syncControls(); });
+  $('moving').addEventListener('click', () => { S.moving = !S.moving; syncControls(); });
+
+  function setWidth(d) { if (!(S.ideas.cone && S.ideas.width)) return; S.widthIdx = Math.max(0, Math.min(2, S.widthIdx + d)); syncControls(); }
+  $('widen').addEventListener('click', () => setWidth(1));
+  $('narrow').addEventListener('click', () => setWidth(-1));
+
+  function addTag() {
+    const c = selected();
+    if (!c) { S.status = S.active || S.contacts.some(x => x.tracked) ? 'Point the hydrophone at a contact on the plot to tag it.' : 'No contacts on the plot. Go active or build a passive track first.'; return; }
+    c.tag = REF_ORDER[S.ref];
+    S.status = `Tagged ${S.ideas.num ? c.num : 'contact'} as ${TYPES[c.tag].name}.`;
+  }
+  function removeTag() {
+    const c = selected();
+    if (!c || !c.tag) { S.status = 'No tagged contact under the hydrophone.'; return; }
+    c.tag = null; S.status = `Removed tag from ${S.ideas.num ? c.num : 'contact'}.`;
+  }
+  $('addTag').addEventListener('click', addTag);
+  $('removeTag').addEventListener('click', removeTag);
+
+  // A/D buttons rotate while held
+  let rot = 0;
+  for (const [id, dir] of [['rotL', -1], ['rotR', 1]]) {
+    const b = $(id);
+    b.addEventListener('pointerdown', e => { rot = dir; b.classList.add('down'); b.setPointerCapture(e.pointerId); });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => { if (rot === dir) rot = 0; b.classList.remove('down'); });
+  }
+
+  // aim by dragging the plot
+  let aiming = false;
+  function aim(e) {
+    const r = plot.getBoundingClientRect();
+    S.hydro = wrap(Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI);
+  }
+  plot.addEventListener('pointerdown', e => { aiming = true; plot.setPointerCapture(e.pointerId); aim(e); });
+  plot.addEventListener('pointermove', e => { if (aiming) aim(e); });
+  plot.addEventListener('pointerup', () => { aiming = false; });
+  plot.addEventListener('pointercancel', () => { aiming = false; });
+
+  const held = new Set();
+  window.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'a' || k === 'd' || k === 'arrowleft' || k === 'arrowright') { held.add(k); e.preventDefault(); return; }
+    if (e.repeat) return;
+    if (k === 'w') setWidth(1);
+    else if (k === 's') setWidth(-1);
+    else if (k === 't') addTag();
+    else if (k === 'r') removeTag();
+    else if (/^[0-9]$/.test(k)) { S.ref = k === '0' ? 9 : +k - 1; drawRef(); }
+  });
+  window.addEventListener('keyup', e => held.delete(e.key.toLowerCase()));
+  window.addEventListener('blur', () => held.clear());
+
+  // ---------- Stereo hydrophone audio ----------
+  // Each contact in the cone hums, panned by where it sits in the cone: right of centre sounds right, so tap D.
+  const VOICE = { // pitch (Hz), propeller beat (Hz), waveform
+    carrier: [52, 1.6, 'sawtooth'], container: [58, 1.9, 'sawtooth'], tanker: [64, 2.2, 'sawtooth'],
+    destroyer: [82, 4.5, 'sawtooth'], frigate: [96, 5.5, 'sawtooth'], sub: [70, 3, 'triangle'],
+    tug: [120, 7, 'sawtooth'], fishing: [145, 8, 'square'], whale: [180, 0.7, 'sine'], kraken: [44, 0.9, 'sawtooth'],
+    gem: [1480, 2, 'sine'],
+  };
+  let AC = null, master = null, hiss = null, reverb = null;
+  const voices = new Map();
+  function ensureAudio() {
+    if (!S.ideas.audio) return;
+    if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+    try {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = 0.6; master.connect(AC.destination);
+      const buf = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900;
+      hiss = AC.createGain(); hiss.gain.value = 0;
+      src.connect(lp).connect(hiss).connect(master); src.start();
+      // Reverb for the ping: decaying noise impulse, about 13 dB per second
+      const len = AC.sampleRate * 3.5, ir = AC.createBuffer(2, len, AC.sampleRate);
+      for (let chn = 0; chn < 2; chn++) {
+        const dd = ir.getChannelData(chn);
+        for (let i = 0; i < len; i++) dd[i] = (Math.random() * 2 - 1) * Math.exp(-i / AC.sampleRate / 0.65);
+      }
+      const conv = AC.createConvolver(); conv.buffer = ir;
+      const wet = AC.createGain(); wet.gain.value = 0.35;
+      reverb = AC.createGain(); reverb.connect(conv).connect(wet).connect(master);
+    } catch (e) { AC = null; }
+  }
+  function voiceFor(c) {
+    let v = voices.get(c.id);
+    if (v) return v;
+    const [f, beat, wave] = VOICE[c.type];
+    const osc = AC.createOscillator(); osc.type = wave; osc.frequency.value = f * (1 + (c.id % 3) * 0.04);
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = c.type === 'gem' ? 4000 : 600;
+    const trem = AC.createGain(); trem.gain.value = 0.55;
+    const lfo = AC.createOscillator(); lfo.frequency.value = beat;
+    const depth = AC.createGain(); depth.gain.value = 0.45; lfo.connect(depth).connect(trem.gain);
+    const vol = AC.createGain(); vol.gain.value = 0;
+    // Balance panning: both ears full at centre; the far ear fades as the contact drifts, the near ear stays full
+    const gl = AC.createGain(), gr = AC.createGain(), merge = AC.createChannelMerger(2);
+    osc.connect(lp).connect(trem).connect(vol);
+    vol.connect(gl).connect(merge, 0, 0);
+    vol.connect(gr).connect(merge, 0, 1);
+    merge.connect(master);
+    osc.start(); lfo.start();
+    v = { vol, gl, gr }; voices.set(c.id, v);
+    return v;
+  }
+  function updateAudio() {
+    if (!AC) return;
+    const now = AC.currentTime;
+    master.gain.setTargetAtTime(S.ideas.audio ? 0.6 : 0, now, 0.05);
+    if (!S.ideas.audio) return;
+    const NL = noiseLevel(), live = new Set();
+    hiss.gain.setTargetAtTime(Math.min(0.22, 0.025 + 0.01 * Math.max(0, NL - AMBIENT)), now, 0.1);
+    const hw = S.ideas.cone ? coneHalf() : 3;
+    for (const h of heard()) {
+      const v = voiceFor(h.c), off = angDiff(h.R.brg, S.hydro);
+      // Inside the cone a contact plays at full strength wherever it sits; outside it fades with the beam loss
+      const edgeLoss = Math.abs(off) <= hw ? beamLoss(off) : 0;
+      const s = h.L + edgeLoss - (NL - AMBIENT); // signal over noise
+      const loud = Math.pow(Math.max(0, Math.min(1, (s + 4) / 24)), 1.5) * (h.c.type === 'gem' ? 0.12 : 0.3);
+      v.vol.gain.setTargetAtTime(loud, now, 0.06);
+      const p = Math.max(-1, Math.min(1, off / hw)); // -1 hard left, +1 hard right
+      v.gl.gain.setTargetAtTime(Math.min(1, 1 - p), now, 0.04);
+      v.gr.gain.setTargetAtTime(Math.min(1, 1 + p), now, 0.04);
+      live.add(h.c.id);
+    }
+    for (const [id, v] of voices) if (!live.has(id)) v.vol.gain.setTargetAtTime(0, now, 0.08);
+  }
+  function pingSound() {
+    if (!AC || !S.ideas.audio) return;
+    // A clean tone rising ~3150 -> 3450 Hz over 0.55 s, repeating echoes, then a reverb tail
+    const now = AC.currentTime, o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(3150, now);
+    o.frequency.linearRampToValueAtTime(3450, now + 0.53);
+    const vol = [1, 0.6, 0.3][S.pingIdx]; // quieter ping at shorter range
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.12 * vol, now + 0.015);
+    g.gain.setValueAtTime(0.11 * vol, now + 0.51);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+    o.connect(g);
+    g.connect(master);
+    // echo with feedback: each repeat 0.15 s later and about 8 dB quieter
+    const echo = AC.createDelay(0.5), echoGain = AC.createGain(), fb = AC.createGain();
+    echo.delayTime.value = 0.15; echoGain.gain.value = 0.25; fb.gain.value = 0.4;
+    g.connect(echo).connect(echoGain).connect(master);
+    echoGain.connect(fb).connect(echo);
+    g.connect(reverb);
+    o.start(now); o.stop(now + 0.6);
+  }
+  // Browsers only allow sound after the viewer interacts with the page
+  window.addEventListener('pointerdown', ensureAudio);
+  window.addEventListener('keydown', ensureAudio);
+
+  // ---------- Loop ----------
+  let last = performance.now(), rowAcc = 0;
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const r = rot + (held.has('d') || held.has('arrowright') ? 1 : 0) - (held.has('a') || held.has('arrowleft') ? 1 : 0);
+    S.hydro = wrap(S.hydro + r * 40 * dt);
+    step(dt);
+    rowAcc += dt;
+    while (rowAcc >= 0.1) { wfRow(); rowAcc -= 0.1; }
+    drawPlot(); drawPanels(); updateAudio();
+    requestAnimationFrame(frame);
+  }
+
+  new ResizeObserver(sizePlot).observe(plot);
+  sizePlot();
+  reset(false);  requestAnimationFrame(frame);
+})();
+</script>
