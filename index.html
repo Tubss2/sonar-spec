@@ -385,8 +385,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   const PING_RANGES = [600, 400, 200], PING_NOISE = [40, 20, 10];
   const PING_EVERY = 4, PING_SPEED = 600, PING_FADE = 8; // seconds, units per second, seconds
   const activeRange = () => S.ideas.ping ? PING_RANGES[S.pingIdx] : ACTIVE_RANGE;
-  const SPIKE_FADE = 2.5; // seconds
-  const spike = () => S.ideas.ping ? S.spikeAmt * Math.max(0, 1 - (S.t - S.pingStart) / SPIKE_FADE) : 0;
+  const spike = () => S.ideas.ping ? S.spikeAmt * Math.max(0, 1 - (S.t - S.pingStart)) : 0; // fades over 1 s
   const effNoise = () => Math.min(100, S.noise + spike());
 
   function noiseLevel() {
@@ -1083,22 +1082,6 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     echoGain.connect(fb).connect(echo);
     g.connect(reverb);
     o.start(now); o.stop(now + 0.6);
-    // Second layer: softer, duller returns of the ping that roll on through the noise spike
-    const dull = AC.createBiquadFilter(); dull.type = 'lowpass'; dull.frequency.value = 2600;
-    dull.connect(master); dull.connect(reverb);
-    for (let i = 1; i <= 6; i++) {
-      const t0 = now + 0.2 + i * 0.36, eo = AC.createOscillator(), eg = AC.createGain();
-      const lvl = 0.05 * vol * 0.78 ** (i - 1), drop = 1 - i * 0.006; // each return a little quieter and lower
-      eo.type = 'sine';
-      eo.frequency.setValueAtTime(3150 * drop, t0);
-      eo.frequency.linearRampToValueAtTime(3450 * drop, t0 + 0.53);
-      eg.gain.setValueAtTime(0.0001, t0);
-      eg.gain.exponentialRampToValueAtTime(lvl, t0 + 0.06);
-      eg.gain.setValueAtTime(lvl, t0 + 0.4);
-      eg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
-      eo.connect(eg).connect(dull);
-      eo.start(t0); eo.stop(t0 + 0.65);
-    }
   }
   function dingSound() {
     // Counter service bell: bright strike, a slightly detuned pair that shimmers, a long ring and an echo
