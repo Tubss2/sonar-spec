@@ -45,17 +45,21 @@ h1 { font-family: var(--font-ui); font-weight: 700; font-size: 30px; letter-spac
   background: var(--steel); padding: 20px; min-width: 0;
   display: grid; gap: 20px 24px;
   grid-template-columns: 150px minmax(0, 1fr) 330px;
-  grid-template-areas: "mode plot side" "hydro tags ref";
+  grid-template-areas: "mode plot side" "hydro width ref";
   align-items: start;
 }
 .a-mode { grid-area: mode; } .a-plot { grid-area: plot; } .a-side { grid-area: side; }
-.a-hydro { grid-area: hydro; } .a-tags { grid-area: tags; } .a-ref { grid-area: ref; }
-.a-side { align-self: end; }
+.a-hydro { grid-area: hydro; } .a-width { grid-area: width; } .a-ref { grid-area: ref; }
+/* Right column: demo buttons pinned top right, Track Builder and waterfall at the bottom */
+.a-side { align-self: stretch; grid-template-rows: auto 1fr auto auto; }
+.top-btns { justify-content: flex-end; }
+.under-plot { justify-content: space-between; align-items: start; gap: 20px; }
 @media (max-width: 960px) {
-  .station { grid-template-columns: minmax(0, 1fr); grid-template-areas: "plot" "side" "mode" "hydro" "tags" "ref"; }
-  .a-side { align-self: start; }
+  .station { grid-template-columns: minmax(0, 1fr); grid-template-areas: "plot" "side" "mode" "hydro" "width" "ref"; }
+  .a-side { align-self: start; grid-template-rows: none; }
+  .top-btns { justify-content: flex-start; }
 }
-#plot { display: block; width: 100%; max-width: 600px; aspect-ratio: 1; touch-action: none; cursor: crosshair; margin: 0 auto; }
+#plot { display: block; width: 100%; max-width: 600px; aspect-ratio: 1; margin: 0 auto; }
 .lbl { font-family: var(--font-ui); font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
 .readout { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; }
 .group { display: grid; gap: 10px; align-content: start; justify-items: start; }
@@ -99,6 +103,11 @@ h1 { font-family: var(--font-ui); font-weight: 700; font-size: 30px; letter-spac
 .lcd { background: var(--screen); color: var(--phos); font-family: var(--font-mono); font-size: 13px; padding: 8px 10px; min-height: 92px; display: grid; align-content: start; gap: 1px; }
 .lcd .dim { color: #3f8a4f; }
 .lcd .big { font-size: 17px; font-weight: 600; }
+/* Track established: the display flashes bright twice */
+.lcd.flash { animation: tbflash .6s steps(2, jump-none) 3; }
+.lcd.flash .dim { color: inherit; }
+@keyframes tbflash { 0% { background: var(--phos); color: var(--steel-lo); } 100% { background: var(--screen); color: var(--phos); } }
+@media (prefers-reduced-motion: reduce) { .lcd.flash { animation: none; outline: 3px solid var(--phos); } }
 .wf-row { display: flex; gap: 10px; align-items: stretch; }
 #wf { width: 240px; height: 240px; max-width: 100%; background: var(--screen); display: block; image-rendering: pixelated; }
 .meter { display: grid; grid-template-rows: auto 1fr auto; gap: 6px; justify-items: start; width: 66px; }
@@ -152,15 +161,19 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
       <span class="lbl" id="pingLbl">Ping range</span>
       <div id="pingLever" aria-label="Active ping range"></div>
       <button class="btn bevel cheat" id="cheat" type="button" aria-pressed="false">Cheat<br>mode</button>
-      <button class="btn bevel side-btn" id="scramble" type="button">Scramble units</button>
       <button class="btn bevel side-btn" id="moving" type="button" aria-pressed="false">Move units</button>
     </div>
 
     <div class="a-plot">
-      <canvas id="plot" aria-label="Sonar plot. Drag to aim the hydrophone."></canvas>
+      <canvas id="plot" aria-label="Sonar plot"></canvas>
     </div>
 
     <div class="a-side">
+      <div class="btn-row top-btns">
+        <button class="btn bevel side-btn" id="scramble" type="button">Scramble units</button>
+        <button class="btn bevel side-btn" id="randomMove" type="button" aria-pressed="false">Random move</button>
+      </div>
+      <div aria-hidden="true"></div>
       <div class="lcd inset" id="tb" aria-live="polite"></div>
       <div class="wf-row">
         <canvas id="wf" class="inset" width="240" height="240" aria-label="Waterfall plot"></canvas>
@@ -181,21 +194,26 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
         <button class="btn bevel" id="rotL" type="button"><kbd>A</kbd> ◄</button>
         <button class="btn bevel" id="rotR" type="button">► <kbd>D</kbd></button>
       </div>
-      <div id="widthLever" aria-label="Hydrophone cone width"></div>
-      <div class="btn-row">
-        <button class="btn bevel" id="narrow" type="button"><kbd>S</kbd> Narrow</button>
-        <button class="btn bevel" id="widen" type="button">Wide <kbd>W</kbd></button>
-      </div>
       <span class="readout" id="nav"></span>
     </div>
 
-    <div class="a-tags group">
-      <span class="lbl">Tags</span>
-      <div class="btn-row">
-        <button class="btn bevel" id="addTag" type="button">Add tag <kbd>T</kbd></button>
-        <button class="btn bevel" id="removeTag" type="button">Remove tag <kbd>R</kbd></button>
+    <div class="a-width btn-row under-plot">
+      <div class="group">
+        <span class="lbl">Cone width</span>
+        <div class="btn-row">
+          <button class="btn bevel" id="narrow" type="button"><kbd>S</kbd> Narrow</button>
+          <button class="btn bevel" id="widen" type="button">Wide <kbd>W</kbd></button>
+        </div>
+        <div id="widthLever" aria-label="Hydrophone cone width"></div>
       </div>
-      <div class="status" id="status"></div>
+      <div class="group">
+        <span class="lbl">Tags</span>
+        <div class="btn-row">
+          <button class="btn bevel" id="addTag" type="button">Add tag <kbd>T</kbd></button>
+          <button class="btn bevel" id="removeTag" type="button">Remove tag <kbd>R</kbd></button>
+        </div>
+        <div class="status" id="status"></div>
+      </div>
     </div>
 
     <div class="a-ref ref inset">
@@ -219,7 +237,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   </div>
 
   <div class="foot">
-    <p class="hint">Drag on the plot to aim, or hold <kbd>A</kbd> <kbd>D</kbd>. <kbd>W</kbd> <kbd>S</kbd> change the cone width. <kbd>1</kbd>–<kbd>0</kbd> pick a reference.</p>
+    <p class="hint">Hold <kbd>A</kbd> <kbd>D</kbd> to aim. <kbd>T</kbd> <kbd>R</kbd> add and remove a tag. <kbd>W</kbd> <kbd>S</kbd> change the cone width. <kbd>1</kbd>–<kbd>0</kbd> pick a reference.</p>
     <button class="btn bevel" id="reset" type="button">Reset</button>
   </div>
 </div>
@@ -282,13 +300,15 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   let S;
   function reset(scramble) {
     S = {
-      t: 0, own: { x: 0, y: 0, hdg: 0 }, active: S ? S.active : true, hydro: S ? S.hydro : 140, widthIdx: S ? S.widthIdx : 0,
+      t: 0, own: { x: 0, y: 0, hdg: 0 }, active: S ? S.active : false, hydro: S ? S.hydro : 140, widthIdx: S ? S.widthIdx : 0,
       noise: S ? S.noise : 40, ref: S ? S.ref : 6, cheat: S ? S.cheat : false,
-      pingIdx: S ? S.pingIdx : 0, moving: S ? S.moving : false,
+      pingIdx: S ? S.pingIdx : 0, moving: S ? S.moving : true, mode: S ? S.mode : 'circle',
       nextPing: 0, pingStart: -99, pingId: 0, spikeAmt: 0,
       nextNum: 7001, contacts: [], tb: { target: null, flash: '', flashT: 0, remaining: 0 }, status: '',
       ideas: S ? S.ideas : { cone: true, width: true, noise: true, gems: true, track: true, num: true, ping: true, audio: true },
     };
+    if (S.mode === 'random') spawnRandom();
+    else {
     scenario(scramble).forEach((s, i) => {
       S.contacts.push({ id: i, type: s[0], brg: wrap(s[1]), r0: s[2], x: 0, y: 0, hdg: s[3], depth: s[4] || null, group: s[5],
         omega: 0, ph: i * 1.37 + 0.4, num: null, tag: null, tracked: false, acq: 0, build: 0,
@@ -302,11 +322,55 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
       S.contacts.filter(c => c.group === grp).forEach(c => { c.omega = w * d; });
     }
     S.contacts.forEach(placeContact);
+    }
     syncControls();
     prefillWaterfall();
   }
 
   function placeContact(c) { c.x = Math.sin(rad(c.brg)) * c.r0; c.y = Math.cos(rad(c.brg)) * c.r0; }
+
+  // Random move mode: two formations and four solo units, each wandering on its own course and speed.
+  // Formation members hold a spot relative to the leader: [type, metres ahead (+) / behind (-), metres to starboard (+) / port (-)]
+  const RANDOM_FORMATIONS = [
+    [['carrier', 0, 0], ['destroyer', -60, -70], ['frigate', -60, 70]], // enemy group of three, V around the carrier
+    [['container', 0, 0], ['tanker', -90, 45]],                           // civilian pair
+  ];
+  const RANDOM_SOLOS = ['sub', 'frigate', 'tug', 'fishing'];
+  function placeFollower(f) {
+    const L = S.contacts[f.leader], h = rad(L.hdg);
+    f.x = L.x + Math.sin(h) * f.fwd + Math.cos(h) * f.side;
+    f.y = L.y + Math.cos(h) * f.fwd - Math.sin(h) * f.side;
+    f.hdg = L.hdg;
+  }
+  function linearContact(type, x, y, speed) {
+    return { id: S.contacts.length, type, x, y, hdg: rnd(0, 360), lin: true, spd: speed, turn: 0, turnT: 0,
+      depth: type === 'sub' ? Math.round(rnd(60, 300) / 10) * 10 : null, group: null, omega: 0,
+      ph: S.contacts.length * 1.37 + 0.4, num: null, tag: null, tracked: false, acq: 0, build: 0,
+      lastSeen: -Infinity, px: 0, py: 0, pingId: -1 };
+  }
+  function randomSpot(rMin, rMax) {
+    const a = rnd(0, Math.PI * 2), r = rMin + Math.sqrt(Math.random()) * (rMax - rMin);
+    return { x: Math.sin(a) * r, y: Math.cos(a) * r };
+  }
+  function spawnRandom() {
+    for (const form of RANDOM_FORMATIONS) {
+      const p = randomSpot(300, 800), lead = linearContact(form[0][0], p.x, p.y, rnd(8, 20));
+      S.contacts.push(lead);
+      for (const [type, fwd, side] of form.slice(1)) {
+        const f = linearContact(type, 0, 0, lead.spd);
+        Object.assign(f, { leader: lead.id, fwd, side });
+        placeFollower(f); S.contacts.push(f);
+      }
+    }
+    for (const type of RANDOM_SOLOS) {
+      const p = randomSpot(120, 900);
+      S.contacts.push(linearContact(type, p.x, p.y, rnd(8, 30)));
+    }
+    for (let i = 0; i < 2; i++) {
+      const p = randomSpot(150, 450), gem = linearContact('gem', p.x, p.y, 0);
+      gem.lin = false; gem.hdg = 0; S.contacts.push(gem);
+    }
+  }
 
   // ---------- Geometry / acoustics ----------
   const rad = d => d * Math.PI / 180;
@@ -327,16 +391,16 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   function noiseLevel() {
     if (!S.ideas.noise) return AMBIENT + 2;
     const noise = effNoise();
-    // Sub noise % -> self-noise dB. Quiet below ~50%, climbs hard from 60% (cruising) up.
-    const pts = [[0, 30], [40, 44], [60, 60], [80, 66.5], [100, 70]];
-    let self = 70;
+    // Sub noise % -> noise floor dB. Running silent drops below the usual 50 dB background;
+    // quiet to ~50%, then climbs hard from 60% (cruising) up.
+    const pts = [[0, 44], [20, 47], [40, 51], [50, 54.1], [60, 60.4], [80, 66.6], [100, 70]];
     for (let i = 1; i < pts.length; i++) {
       if (noise <= pts[i][0]) {
         const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
-        self = y0 + (y1 - y0) * (noise - x0) / (x1 - x0); break;
+        return y0 + (y1 - y0) * (noise - x0) / (x1 - x0);
       }
     }
-    return 10 * Math.log10(10 ** (AMBIENT / 10) + 10 ** (self / 10));
+    return 70;
   }
   const TL = r => 20 * Math.log10(Math.max(r, 20)) + 0.01 * r;
   const coneHalf = () => S.ideas.cone ? (S.ideas.width ? width() : 10) / 2 : 1.5;
@@ -346,7 +410,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     const a = Math.abs(off), hw = coneHalf();
     return a <= hw ? 3 * (a / hw) ** 2 : 3 + 40 * (a - hw) / hw;
   }
-  const audible = c => c.type !== 'gem' || S.ideas.gems;
+  const audible = c => !c.gone && (c.type !== 'gem' || S.ideas.gems);
   const recv = (c, R) => TYPES[c.type].sl + GAIN - TL(R.r) + coneGain() - beamLoss(angDiff(R.brg, S.hydro));
   const snr = (c, R, NL) => recv(c, R) - NL;
   const snrOmni = (c, R, NL) => TYPES[c.type].sl + GAIN - TL(R.r) - NL;
@@ -411,11 +475,13 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   // ---------- Tracks and numbering ----------
   function nextNum() { const n = S.nextNum; S.nextNum = n >= 7099 ? 7001 : n + 1; return n; }
   const TRACK_GRACE = 0.5, TRACK_FADE = 3; // seconds after the hydrophone leaves a passive track
-  const BUILD_GRACE = 1.5;                 // seconds a contact can slip out of the cone while finding or building
+  const BUILD_GRACE = 0.5;                 // seconds a contact can slip out of the cone while finding or building
+  const BUILD_DRAIN = 1.5;                 // seconds for full find/build progress to drain once the contact is lost
   const FIND_SHARE = 0.2;                  // hidden find stage as a share of the total track time
   function updateHolds(NL, dt = 0) {
     const hw = S.ideas.cone ? coneHalf() : 3;
     for (const c of S.contacts) {
+      if (c.gone) { c.num = null; c.tag = null; c.tracked = false; continue; }
       const R = rel(c);
       if (!S.ideas.ping) {
         // today: active shows everything inside active range, live
@@ -448,7 +514,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   function dispBrg(c) { const p = dispPos(c); return wrap(Math.atan2(p.x - S.own.x, p.y - S.own.y) * 180 / Math.PI); }
 
   function trackBuilder(dt, NL) {
-    const tb = S.tb, decay = dt / 3; // full progress drains in 3 seconds
+    const tb = S.tb, decay = dt / BUILD_DRAIN;
     if (!S.ideas.track || S.active) {
       for (const c of S.contacts) { c.acq = Math.max(0, c.acq - decay); c.build = Math.max(0, c.build - decay); }
       tb.target = null; return;
@@ -471,7 +537,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     if (!target) {
       let bestR = Infinity;
       for (const c of S.contacts) {
-        if (c.type === 'gem' || c.tracked) continue;
+        if (c.type === 'gem' || c.tracked || c.gone) continue;
         const R = rel(c);
         if (inCone(c, R) && R.r < bestR) { target = c; bestR = R.r; }
       }
@@ -496,6 +562,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
       updateHolds(NL);
       tb.flash = S.ideas.num ? `TRACK ${target.num} ESTABLISHED` : 'TRACK ESTABLISHED';
       tb.flashT = 2.5; tb.target = null;
+      dingSound();
     }
   }
 
@@ -513,6 +580,26 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   // ---------- Simulation step ----------
   function step(dt) {
     S.t += dt;
+    // Random move: each unit drifts its course a little every few seconds, and turns back in near the edge of the map
+    if (S.moving) {
+      for (const c of S.contacts) {
+        if (!c.lin || c.gone || c.leader !== undefined) continue; // formation members follow their leader below
+        c.turnT -= dt;
+        if (c.turnT <= 0) { c.turn = rnd(-8, 8); c.turnT = rnd(3, 8); } // degrees per second, held for 3-8 s
+        // Course changes: one or two per crossing of the map (about 1,800 units), each a 40-120° turn at 6°/s
+        const legFor = () => rnd(0.5, 1) * 1800 / c.spd;
+        if (c.legT === undefined) c.legT = legFor();
+        c.legT -= dt;
+        if (c.legT <= 0) { c.tgtHdg = wrap(c.hdg + (Math.random() < 0.5 ? -1 : 1) * rnd(40, 120)); c.legT = legFor(); }
+        const R = rel(c);
+        const steer = (to, rate) => { const d = angDiff(to, c.hdg); c.hdg = wrap(c.hdg + Math.sign(d) * Math.min(Math.abs(d), rate * dt)); return Math.abs(d) < 1; };
+        if (R.r > 900) { steer(wrap(R.brg + 180), 15); c.tgtHdg = undefined; }
+        else if (c.tgtHdg !== undefined) { if (steer(c.tgtHdg, 6)) c.tgtHdg = undefined; }
+        else c.hdg = wrap(c.hdg + c.turn * dt);
+        c.x += Math.sin(rad(c.hdg)) * c.spd * dt; c.y += Math.cos(rad(c.hdg)) * c.spd * dt;
+      }
+      for (const c of S.contacts) if (c.leader !== undefined && !c.gone) placeFollower(c);
+    }
     if (S.moving) {
       for (const c of S.contacts) {
         if (!c.omega) continue;
@@ -531,7 +618,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
       if (sweep <= activeRange() + 30) { // only while the pulse is travelling out
         const ringR = Math.min(activeRange(), sweep);
         for (const c of S.contacts) {
-          if (c.pingId === S.pingId) continue;
+          if (c.gone || c.pingId === S.pingId) continue;
           if (rel(c).r <= ringR) { c.pingId = S.pingId; c.lastSeen = S.t; c.px = c.x; c.py = c.y; }
         }
       }
@@ -659,6 +746,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     };
     g.textBaseline = 'middle'; g.textAlign = 'left';
     for (const cc of S.contacts) {
+      if (cc.gone) continue;
       const T = TYPES[cc.type];
       if (S.cheat) {
         const p = pos(cc, false);
@@ -717,6 +805,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     if (S.ideas.noise) syncNoise();
     const tbEl = $('tb');
     tbEl.hidden = !S.ideas.track;
+    tbEl.classList.toggle('flash', S.tb.flashT > 0);
     if (S.ideas.track) {
       let lines;
       const t = S.tb.target !== null ? S.contacts[S.tb.target] : null;
@@ -841,6 +930,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     $('i-width').disabled = !S.ideas.cone;
     $('cheat').setAttribute('aria-pressed', String(S.cheat));
     $('moving').setAttribute('aria-pressed', String(S.moving));
+    $('randomMove').setAttribute('aria-pressed', String(S.mode === 'random'));
     pingLever.show(S.pingIdx);
     $('pingLever').hidden = $('pingLbl').hidden = !S.ideas.ping;
     syncNoise();
@@ -851,6 +941,9 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
   $('scramble').addEventListener('click', () => reset(true));
   $('cheat').addEventListener('click', () => { S.cheat = !S.cheat; syncControls(); });
   $('moving').addEventListener('click', () => { S.moving = !S.moving; syncControls(); });
+
+  // Random move mode toggles with circle move; switching clears every unit and spawns the other layout
+  $('randomMove').addEventListener('click', () => { S.mode = S.mode === 'random' ? 'circle' : 'random'; reset(false); });
 
   function setWidth(d) { if (!(S.ideas.cone && S.ideas.width)) return; S.widthIdx = Math.max(0, Math.min(2, S.widthIdx + d)); syncControls(); }
   $('widen').addEventListener('click', () => setWidth(1));
@@ -877,17 +970,6 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     b.addEventListener('pointerdown', e => { rot = dir; b.classList.add('down'); b.setPointerCapture(e.pointerId); });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(ev, () => { if (rot === dir) rot = 0; b.classList.remove('down'); });
   }
-
-  // aim by dragging the plot
-  let aiming = false;
-  function aim(e) {
-    const r = plot.getBoundingClientRect();
-    S.hydro = wrap(Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI);
-  }
-  plot.addEventListener('pointerdown', e => { aiming = true; plot.setPointerCapture(e.pointerId); aim(e); });
-  plot.addEventListener('pointermove', e => { if (aiming) aim(e); });
-  plot.addEventListener('pointerup', () => { aiming = false; });
-  plot.addEventListener('pointercancel', () => { aiming = false; });
 
   const held = new Set();
   window.addEventListener('keydown', e => {
@@ -963,7 +1045,7 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     master.gain.setTargetAtTime(S.ideas.audio ? 0.6 : 0, now, 0.05);
     if (!S.ideas.audio) return;
     const NL = noiseLevel(), live = new Set();
-    hiss.gain.setTargetAtTime(Math.min(0.22, 0.025 + 0.01 * Math.max(0, NL - AMBIENT)), now, 0.1);
+    hiss.gain.setTargetAtTime(Math.max(0.006, Math.min(0.22, 0.025 + 0.01 * (NL - AMBIENT))), now, 0.1);
     const hw = S.ideas.cone ? coneHalf() : 3;
     for (const h of heard()) {
       const v = voiceFor(h.c), off = angDiff(h.R.brg, S.hydro);
@@ -1000,6 +1082,26 @@ kbd { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--st
     echoGain.connect(fb).connect(echo);
     g.connect(reverb);
     o.start(now); o.stop(now + 0.6);
+  }
+  function dingSound() {
+    // Counter service bell: bright strike, a slightly detuned pair that shimmers, a long ring and an echo
+    if (!AC || !S.ideas.audio) return;
+    const now = AC.currentTime, base = 2490;
+    const bus = AC.createGain(); bus.gain.value = 1;
+    bus.connect(master);
+    bus.connect(reverb);
+    const echo = AC.createDelay(0.5), echoGain = AC.createGain(), fb = AC.createGain();
+    echo.delayTime.value = 0.18; echoGain.gain.value = 0.3; fb.gain.value = 0.35;
+    bus.connect(echo).connect(echoGain).connect(master);
+    echoGain.connect(fb).connect(echo);
+    for (const [ratio, level, decay] of [[1, 0.16, 2.6], [1.004, 0.1, 2.4], [2.32, 0.06, 1.2], [3.9, 0.035, 0.6], [5.6, 0.02, 0.25]]) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sine'; o.frequency.value = base * ratio;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(level, now + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+      o.connect(g).connect(bus); o.start(now); o.stop(now + decay + 0.05);
+    }
   }
   // Browsers only allow sound after the viewer interacts with the page
   window.addEventListener('pointerdown', ensureAudio);
